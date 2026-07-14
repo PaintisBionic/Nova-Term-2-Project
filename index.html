@@ -1,1 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UN SDG 8 Micro-Enterprise POS Terminal</title>
+    <style>
+        /* ==========================================
+           UNIVERSAL THEME VARIABLES & LIGHT MODE Default
+           ========================================== */
+        :root {
+            --bg-color: #f8fafc;
+            --text-color: #0f172a;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --danger-color: #ef4444;
+            --danger-hover: #dc2626;
+            --success-color: #10b981;
+            --muted-text: #64748b;
+            --warning-color: #f59e0b;
+        }
 
+        body.dark-mode {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --muted-text: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-bottom: 20px; border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px; flex-wrap: wrap; gap: 16px;
+        }
+
+        .header-controls { display: flex; gap: 12px; align-items: center; }
+
+        select, input {
+            padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);
+            background-color: var(--card-bg); color: var(--text-color);
+            font-size: 0.95rem; outline: none;
+        }
+
+        button {
+            padding: 8px 16px; border-radius: 6px; font-weight: 600;
+            cursor: pointer; border: none; transition: background-color 0.2s;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-danger:hover { background-color: var(--danger-hover); }
+
+        .btn-success { background-color: var(--success-color); color: white; }
+        
+        .btn-utility { background-color: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); }
+        .btn-utility:hover { background-color: var(--bg-color); }
+
+        .analytics-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px; margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background-color: var(--card-bg); border: 1px solid var(--border-color);
+            padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .stat-label { font-size: 0.85rem; color: var(--muted-text); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .stat-value { font-size: 1.6rem; font-weight: 700; }
+        .text-success { color: var(--success-color); }
+        .text-danger { color: var(--danger-color); }
+
+        .panel {
+            background-color: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
+        }
+
+        .panel-title { font-size: 1.2rem; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
+
+        .preset-category-title { font-size: 0.95rem; color: var(--muted-text); margin-bottom: 8px; }
+        .quick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 20px; }
+
+        .btn-quick {
+            background-color: var(--bg-color); color: var(--text-color);
+            border: 1px solid var(--border-color); padding: 12px; text-align: left;
+            font-size: 0.85rem; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; font-weight: normal; position: relative;
+        }
+        .btn-quick:hover:not(:disabled) { border-color: var(--primary-color); background-color: var(--card-bg); }
+        .btn-quick:disabled { opacity: 0.5; cursor: not-allowed; }
+        .stock-badge { position: absolute; top: 6px; right: 6px; font-size: 0.7rem; background: var(--border-color); padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+
+        .form-row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        .form-row input, .form-row select { flex: 1; min-width: 140px; }
+
+        .cart-items-list { list-style: none; max-height: 240px; overflow-y: auto; margin-bottom: 16px; }
+        .cart-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+        .cart-item-info { display: flex; flex-direction: column; }
+        .cart-item-title { font-weight: 600; font-size: 0.95rem; }
+        .cart-item-cost { font-size: 0.85rem; color: var(--muted-text); }
+        
+        .btn-remove { padding: 4px 10px; font-size: 0.75rem; background-color: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); }
+        .btn-remove:hover { background-color: var(--danger-color); color: white; }
+
+        .empty-notice { color: var(--muted-text); text-align: center; padding: 20px 0; font-style: italic; }
+        .cart-totals-summary { display: flex; justify-content: space-between; align-items: center; font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; padding-top: 12px; border-top: 2px dashed var(--border-color); }
+
+        .adjustments-row { display: flex; gap: 8px; margin-bottom: 16px; }
+        .adjustments-row input { flex: 1; }
+
+        .tools-row { display: flex; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
+
+        /* MODAL */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-body { background-color: #ffffff; color: #000000; width: 100%; max-width: 400px; padding: 24px; border-radius: 8px; font-family: 'Courier New', Courier, monospace; }
+        .receipt-header { text-align: center; margin-bottom: 20px; border-bottom: 1px dashed #000000; padding-bottom: 12px; }
+        .receipt-item-line { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+        .receipt-total-line { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; margin-top: 16px; border-top: 1px dashed #000000; padding-top: 12px; margin-bottom: 20px; }
+        .receipt-actions { display: flex; flex-direction: column; gap: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <header>
+        <div>
+            <h1 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.025em;">📈 SDG 8 Micro-POS</h1>
+            <p style="font-size: 0.85rem; color: var(--muted-text);">Decent Work & Economic Growth Store Tracker</p>
+        </div>
+        <div class="header-controls">
+            <select id="currency-select" aria-label="Global Currency Selector">
+                <option value="$">USD ($)</option>
+                <option value="€">EUR (€)</option>
+                <option value="£">GBP (£)</option>
+                <option value="Ksh">KES (Ksh)</option>
+            </select>
+            <button id="theme-toggle" class="btn-utility">🌙 Dark Mode</button>
+        </div>
+    </header>
+
+    <!-- 1. ACTIVE CUSTOMER CART -->
+    <section class="panel">
+        <h2 class="panel-title">📋 Active Customer Cart</h2>
+        
+        <div id="empty-cart-notice" class="empty-notice">Cart is currently empty.</div>
+        <ul id="cart-items-list" class="cart-items-list"></ul>
+
+        <div class="adjustments-row">
+            <input type="number" id="adjust-amount" placeholder="Amount (e.g. 5.00)" step="0.01" min="0.01">
+            <button id="btn-discount" class="btn-utility" style="color: var(--danger-color);">➖ Discount</button>
+            <button id="btn-surcharge" class="btn-utility" style="color: var(--success-color);">➕ Fee / Surcharge</button>
+        </div>
+
+        <div class="cart-totals-summary">
+            <span>Total Sum:</span>
+            <span id="cart-total-amount">$0.00</span>
+        </div>
+
+        <button id="checkout-btn" class="btn-primary" style="width: 100%; padding: 14px; font-size: 1.05rem;" disabled>
+            Proceed to Checkout Receipt
+        </button>
+    </section>
+
+    <!-- 2. QUICK PRESETS INVENTORY -->
+    <section class="panel">
+        <h2 class="panel-title">🛒 Quick Presets Inventory (Stock Tracked)</h2>
+        <div id="presets-dynamic-wrapper"></div>
+    </section>
+
+    <!-- 3. LIVE ANALYTICS DASHBOARD -->
+    <section class="analytics-grid">
+        <div class="stat-card">
+            <div class="stat-label">Gross Revenue</div>
+            <div id="stat-revenue" class="stat-value">$0.00</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Expenses</div>
+            <div id="stat-expenses" class="stat-value text-danger">$0.00</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Net Profit</div>
+            <div id="stat-profit" class="stat-value text-success">$0.00</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Transactions</div>
+            <div id="stat-count" class="stat-value">0</div>
+        </div>
+    </section>
+
+    <!-- 4. MANUAL ENTRY & EXPENSES -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+        <section class="panel">
+            <h2 class="panel-title">📝 Custom Cart Entry</h2>
+            <form id="product-form">
+                <div class="form-row">
+                    <input type="text" id="item-name" placeholder="Item Name..." required />
+                    <input type="number" id="item-price" placeholder="Price" step="0.01" min="0.01" required />
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top: 16px; width: 100%;">Add Manual Item</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2 class="panel-title">📉 Log Business Expense</h2>
+            <form id="expense-form">
+                <div class="form-row">
+                    <input type="text" id="expense-name" placeholder="Rent, Restock, Utilities..." required />
+                    <input type="number" id="expense-amount" placeholder="Amount" step="0.01" min="0.01" required />
+                </div>
+                <button type="submit" class="btn-danger" style="margin-top: 16px; width: 100%;">Deduct Expense</button>
+            </form>
+        </section>
+    </div>
+
+    <!-- DATA UTILITIES ROW -->
+    <section class="tools-row">
+        <button id="z-report-btn" class="btn-utility" style="border-color: var(--warning-color); color: var(--warning-color);">📅 Close Register (End of Day Z-Report)</button>
+        <button id="csv-export-btn" class="btn-utility">📊 Export Financial Ledger (.CSV)</button>
+        <button id="reset-data-btn" class="btn-danger">⚠️ Wipe All History Cache</button>
+    </section>
+
+    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 40px 0;">
+
+    <!-- SYSTEM EXTENSIONS -->
+    <footer class="pos-extensions-container" style="display: flex; flex-direction: column; gap: 24px; padding-bottom: 60px;">
+        <div class="panel">
+            <h3 style="margin-bottom: 8px; font-size: 1.1rem;">📦 Purchased Items Log</h3>
+            <select id="bought-items-dropdown" style="width: 100%; padding: 12px; font-family: monospace;">
+                <option value="">-- View Recorded Sales History --</option>
+            </select>
+        </div>
+
+        <div class="panel">
+            <details class="preset-disclosure-wrapper" style="cursor: pointer;">
+                <summary style="font-size: 1.1rem; font-weight: 600; outline: none; user-select: none;">⚙️ Add Inventory Preset Menu</summary>
+                <form id="add-preset-form" style="display: flex; flex-direction: column; gap: 14px; margin-top: 20px; cursor: default;" onclick="event.stopPropagation();">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <input type="text" id="new-preset-name" placeholder="Item Name (e.g., Fruit Basket)" required />
+                        <input type="number" id="new-preset-price" placeholder="Base Price ($ USD)" step="0.01" min="0.01" required />
+                        <input type="number" id="new-preset-stock" placeholder="Initial Stock Qty" step="1" min="0" required />
+                    </div>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <select id="new-preset-category">
+                            <option value="Food & Groceries">Food & Groceries</option>
+                            <option value="Beverages">Beverages</option>
+                            <option value="Snacks">Snacks</option>
+                            <option value="Household & Personal Care">Household & Personal Care</option>
+                            <option value="General Convenience">General Convenience</option>
+                        </select>
+                        <input type="text" id="new-preset-icon" placeholder="Emoji Icon (e.g., 🍉)" maxLength="4" />
+                    </div>
+                    <button type="submit" class="btn-primary" style="align-self: flex-start; margin-top: 6px;">Save to Store Presets</button>
+                </form>
+            </details>
+        </div>
+    </footer>
+
+    <!-- RECEIPT MODAL -->
+    <div id="receipt-modal" class="modal-overlay" aria-hidden="true">
+        <div class="modal-body">
+            <div class="receipt-header">
+                <h3 style="text-transform: uppercase; font-weight: bold; font-size: 1.1rem; margin-bottom: 4px;">Store Receipt</h3>
+                <p style="font-size: 0.8rem; color: #555;">UN SDG 8 Business Terminal</p>
+                <div id="receipt-timestamp" style="font-size: 0.75rem; margin-top: 8px; color: #666;"></div>
+            </div>
+            
+            <div id="receipt-items-manifest"></div>
+            
+            <div class="receipt-total-line">
+                <span>TOTAL DUE</span>
+                <span id="receipt-grand-total">$0.00</span>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 0.85rem; font-weight: bold;">Payment Method:</label>
+                <select id="payment-method-select" style="width: 100%; margin-top: 4px; border: 1px solid #ccc;">
+                    <option value="Cash">Cash</option>
+                    <option value="Mobile Money (M-Pesa)">Mobile Money</option>
+                    <option value="Split Payment">Split Payment</option>
+                </select>
+            </div>
+            
+            <div class="receipt-actions">
+                <button id="whatsapp-receipt-btn" class="btn-success" style="width: 100%; font-family: monospace;">
+                    💬 Send via WhatsApp
+                </button>
+                <button id="close-modal-btn" class="btn-primary" style="width: 100%; font-family: monospace; background-color: #000000;">
+                    ✅ FINALIZE & PRINT SALE
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
