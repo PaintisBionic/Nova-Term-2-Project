@@ -1,0 +1,446 @@
+// ==========================================
+// CYBERSECURITY DEFENSE: XSS ELIMINATOR
+// This function manually encodes all dangerous HTML characters.
+// Even if an attacker injects code into the checkbox values, 
+// it will safely render as plain text on the screen instead of executing.
+// ==========================================
+function sanitizeString(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')   // Escapes &
+        .replace(/</g, '&lt;')    // Escapes <
+        .replace(/>/g, '&gt;')    // Escapes >
+        .replace(/"/g, '&quot;')  // Escapes " (prevents attribute breakouts)
+        .replace(/'/g, '&#39;');  // Escapes ' (prevents attribute breakouts)
+}
+
+// ==========================================
+// 1. MASTER DEFAULT INVENTORY SEED DATABASE
+// ==========================================
+const DEFAULT_PRESETS = [
+    { id: 1, category: "Beverages", name: "Bottled water", basePrice: 1.25, icon: "💧", stock: 50 },
+    { id: 2, category: "Beverages", name: "Soft drinks", basePrice: 1.99, icon: "🥤", stock: 30 },
+    { id: 3, category: "Snacks", name: "Potato chips", basePrice: 1.50, icon: "🥔", stock: 40 },
+    { id: 4, category: "Food & Groceries", name: "Fresh fruit", basePrice: 0.99, icon: "🍎", stock: 25 },
+    { id: 5, category: "Household & Personal Care", name: "Toilet paper", basePrice: 1.75, icon: "🧻", stock: 60 }
+];
+
+let PRESET_INVENTORY = [];
+
+// ==========================================
+// 2. STATIC CURRENCY EXCHANGE RATES MAP
+// ==========================================
+const CONVERSION_RATES = {
+    '$': 1.0,
+    '€': 0.92,
+    'Ksh': 129.19,
+    '£': 0.78
+};
+
+// ==========================================
+// 3. SYSTEM MEMORY INITIALIZATION
+// ==========================================
+let activeCart = [];
+let activeCurrency = '$'; 
+
+// Updated structure to handle expenses and net profit logic
+let dayAccountingLog = {
+    revenue: 0.00,
+    expenses: 0.00,
+    transactionCount: 0,
+    productFrequencyMap: {}
+};
+
+// ==========================================
+// 4. DOM OBJECT SELECTORS REFERENCE
+// ==========================================
+const productForm = document.getElementById('product-form');
+const expenseForm = document.getElementById('expense-form');
+const inputItemName = document.getElementById('item-name');
+const inputItemPrice = document.getElementById('item-price');
+const inputExpenseName = document.getElementById('expense-name');
+const inputExpenseAmount = document.getElementById('expense-amount');
+
+const cartItemsList = document.getElementById('cart-items-list');
+const emptyCartNotice = document.getElementById('empty-cart-notice');
+const cartTotalAmount = document.getElementById('cart-total-amount');
+const checkoutBtn = document.getElementById('checkout-btn');
+const currencySelect = document.getElementById('currency-select');
+const themeToggle = document.getElementById('theme-toggle');
+const presetsDynamicWrapper = document.getElementById('presets-dynamic-wrapper');
+
+const adjustAmountInput = document.getElementById('adjust-amount');
+const btnDiscount = document.getElementById('btn-discount');
+const btnSurcharge = document.getElementById('btn-surcharge');
+
+const statRevenue = document.getElementById('stat-revenue');
+const statExpenses = document.getElementById('stat-expenses');
+const statProfit = document.getElementById('stat-profit');
+const statCount = document.getElementById('stat-count');
+
+const receiptModal = document.getElementById('receipt-modal');
+const receiptTimestamp = document.getElementById('receipt-timestamp');
+const receiptItemsManifest = document.getElementById('receipt-items-manifest');
+const receiptGrandTotal = document.getElementById('receipt-grand-total');
+const paymentMethodSelect = document.getElementById('payment-method-select');
+const closeModalBtn = document.getElementById('close-modal-btn');
+const whatsappReceiptBtn = document.getElementById('whatsapp-receipt-btn');
+
+const zReportBtn = document.getElementById('z-report-btn');
+const csvExportBtn = document.getElementById('csv-export-btn');
+const resetDataBtn = document.getElementById('reset-data-btn');
+const boughtItemsDropdown = document.getElementById('bought-items-dropdown');
+const addPresetForm = document.getElementById('add-preset-form');
+
+// ==========================================
+// 5. CORE LOGIC & ENGINES
+// ==========================================
+function roundToCommercialCents(value) {
+    if (value === 0) return 0;
+    const wholePart = Math.floor(value);
+    const fractionalPart = value - wholePart;
+    const targetMilestones = [0.00, 0.25, 0.50, 0.75, 0.99, 1.00];
+    
+    let closestMilestone = targetMilestones[0];
+    let minimumDifference = Math.abs(fractionalPart - closestMilestone);
+    
+    for (let i = 1; i < targetMilestones.length; i++) {
+        let currentDifference = Math.abs(fractionalPart - targetMilestones[i]);
+        if (currentDifference < minimumDifference) {
+            minimumDifference = currentDifference;
+            closestMilestone = targetMilestones[i];
+        }
+    }
+    if (closestMilestone === 1.00) return wholePart + 1;
+    return wholePart + closestMilestone;
+}
+
+function formatCurrencyString(value) {
+    const spaceBuffer = (activeCurrency === 'Ksh') ? ' ' : '';
+    return `${activeCurrency}${spaceBuffer}${value.toFixed(2)}`;
+}
+
+// ==========================================
+// 6. UI RENDERING & UPDATES
+// ==========================================
+function renderPresetsUI() {
+    presetsDynamicWrapper.innerHTML = '';
+    const categories = [...new Set(PRESET_INVENTORY.map(item => item.category))];
+
+    categories.forEach(categoryName => {
+        const categoryGroupDiv = document.createElement('div');
+        categoryGroupDiv.className = 'preset-category-group';
+        
+        const headingLabel = document.createElement('h4');
+        headingLabel.className = 'preset-category-title';
+        headingLabel.textContent = categoryName;
+        categoryGroupDiv.appendChild(headingLabel);
+
+        const buttonsGrid = document.createElement('div');
+        buttonsGrid.className = 'quick-grid';
+
+        const filteredInventory = PRESET_INVENTORY.filter(item => item.category === categoryName);
+
+        filteredInventory.forEach(item => {
+            let convertedPresetPrice = roundToCommercialCents(item.basePrice * CONVERSION_RATES[activeCurrency]);
+
+            const buttonElement = document.createElement('button');
+            buttonElement.className = 'btn-quick';
+            buttonElement.disabled = item.stock <= 0;
+            
+            buttonElement.innerHTML = `
+                <span>${item.icon || '📦'} ${item.name}</span>
+                <strong style="margin-top: 4px;">${formatCurrencyString(convertedPresetPrice)}</strong>
+                <span class="stock-badge">${item.stock} left</span>
+            `;
+            
+            buttonElement.addEventListener('click', () => {
+                insertItemToCart(item.name, convertedPresetPrice, item.basePrice, item.id);
+            });
+
+            buttonsGrid.appendChild(buttonElement);
+        });
+
+        categoryGroupDiv.appendChild(buttonsGrid);
+        presetsDynamicWrapper.appendChild(categoryGroupDiv);
+    });
+}
+
+function refreshDashboardAnalyticsUI() {
+    statRevenue.textContent = formatCurrencyString(dayAccountingLog.revenue);
+    statExpenses.textContent = formatCurrencyString(dayAccountingLog.expenses);
+    statProfit.textContent = formatCurrencyString(dayAccountingLog.revenue - dayAccountingLog.expenses);
+    statCount.textContent = dayAccountingLog.transactionCount;
+}
+
+function updateBoughtItemsDropdownUI() {
+    if (!boughtItemsDropdown) return;
+    boughtItemsDropdown.innerHTML = '<option value="">-- View Recorded Sales History --</option>';
+    
+    for (const [itemName, itemMetrics] of Object.entries(dayAccountingLog.productFrequencyMap)) {
+        const qty = itemMetrics.quantity;
+        let activeUnitDisplayPrice = roundToCommercialCents(itemMetrics.basePrice * CONVERSION_RATES[activeCurrency]);
+        
+        const optionNode = document.createElement('option');
+        optionNode.textContent = `${itemName} x${qty} : ${formatCurrencyString(activeUnitDisplayPrice)}`;
+        boughtItemsDropdown.appendChild(optionNode);
+    }
+}
+
+function getCartCalculatedSum() {
+    return activeCart.reduce((sum, item) => sum + item.price, 0);
+}
+
+function updateCartUI() {
+    cartItemsList.innerHTML = '';
+
+    if (activeCart.length === 0) {
+        emptyCartNotice.style.display = 'block';
+        checkoutBtn.disabled = true;
+        cartTotalAmount.textContent = formatCurrencyString(0);
+        return;
+    }
+
+    emptyCartNotice.style.display = 'none';
+    checkoutBtn.disabled = false;
+
+    activeCart.forEach((item, index) => {
+        const rowLi = document.createElement('li');
+        rowLi.className = 'cart-row';
+
+        const dataWrapper = document.createElement('div');
+        dataWrapper.className = 'cart-item-info';
+        
+        const titleLabel = document.createElement('span');
+        titleLabel.className = 'cart-item-title';
+        titleLabel.textContent = item.name;
+
+        const priceLabel = document.createElement('span');
+        priceLabel.className = 'cart-item-cost';
+        priceLabel.textContent = formatCurrencyString(item.price);
+
+        dataWrapper.appendChild(titleLabel);
+        dataWrapper.appendChild(priceLabel);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'btn-remove';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', () => { extractItemFromCart(index); });
+
+        rowLi.appendChild(dataWrapper);
+        rowLi.appendChild(removeBtn);
+        cartItemsList.appendChild(rowLi);
+    });
+
+    cartTotalAmount.textContent = formatCurrencyString(getCartCalculatedSum());
+}
+
+function insertItemToCart(name, price, basePrice, id = null) {
+    activeCart.push({ name, price, basePrice, id });
+    updateCartUI();
+}
+
+function extractItemFromCart(targetIndex) {
+    activeCart.splice(targetIndex, 1);
+    updateCartUI();
+}
+
+function handleAppWideCurrencyConversion(targetCurrencySymbol) {
+    const conversionFactor = CONVERSION_RATES[targetCurrencySymbol] / CONVERSION_RATES[activeCurrency];
+    activeCurrency = targetCurrencySymbol;
+
+    activeCart.forEach(item => item.price = roundToCommercialCents(item.price * conversionFactor));
+    dayAccountingLog.revenue = roundToCommercialCents(dayAccountingLog.revenue * conversionFactor);
+    dayAccountingLog.expenses = roundToCommercialCents(dayAccountingLog.expenses * conversionFactor);
+
+    commitSystemDataToLocalStorage();
+    renderPresetsUI();
+    updateCartUI();
+    refreshDashboardAnalyticsUI();
+    updateBoughtItemsDropdownUI();
+}
+
+// ==========================================
+// 7. LOCAL STORAGE PERSISTENCE
+// ==========================================
+function commitSystemDataToLocalStorage() {
+    localStorage.setItem('sdg8_pos_currency_context', activeCurrency);
+    localStorage.setItem('sdg8_pos_advanced_log', JSON.stringify(dayAccountingLog));
+    localStorage.setItem('sdg8_pos_custom_presets', JSON.stringify(PRESET_INVENTORY));
+}
+
+function loadSystemDataFromLocalStorage() {
+    const savedCurrencyContext = localStorage.getItem('sdg8_pos_currency_context');
+    const rawSavedJSONData = localStorage.getItem('sdg8_pos_advanced_log');
+    const savedCustomPresets = localStorage.getItem('sdg8_pos_custom_presets');
+
+    PRESET_INVENTORY = savedCustomPresets ? JSON.parse(savedCustomPresets) : [...DEFAULT_PRESETS];
+
+    if (rawSavedJSONData) {
+        dayAccountingLog = JSON.parse(rawSavedJSONData);
+        if (dayAccountingLog.expenses === undefined) dayAccountingLog.expenses = 0; // Legacy migration
+    }
+    
+    if (savedCurrencyContext && CONVERSION_RATES[savedCurrencyContext]) {
+        activeCurrency = savedCurrencyContext;
+        currencySelect.value = savedCurrencyContext;
+    }
+
+    if (localStorage.getItem('theme-preference') === 'dark') {
+        document.body.classList.add('dark-mode');
+        themeToggle.textContent = '☀️ Light Mode';
+    }
+    
+    renderPresetsUI();
+    refreshDashboardAnalyticsUI();
+    updateCartUI();
+    updateBoughtItemsDropdownUI();
+}
+
+// ==========================================
+// 8. RECEIPT MODAL & CHECKOUT LOGIC
+// ==========================================
+function compileAndOpenReceiptModal() {
+    receiptItemsManifest.innerHTML = '';
+    receiptTimestamp.textContent = new Date().toLocaleString();
+
+    activeCart.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'receipt-item-line';
+        row.innerHTML = `<span>${item.name}</span><span>${formatCurrencyString(item.price)}</span>`;
+        receiptItemsManifest.appendChild(row);
+    });
+
+    receiptGrandTotal.textContent = formatCurrencyString(getCartCalculatedSum());
+    receiptModal.classList.add('active');
+}
+
+function finalizeCurrentTransaction() {
+    const totalSaleValue = getCartCalculatedSum();
+    dayAccountingLog.revenue += totalSaleValue;
+    dayAccountingLog.transactionCount += 1;
+
+    activeCart.forEach(item => {
+        // Track Product Frequencies
+        if (!dayAccountingLog.productFrequencyMap[item.name]) {
+            dayAccountingLog.productFrequencyMap[item.name] = { quantity: 0, basePrice: item.basePrice };
+        }
+        dayAccountingLog.productFrequencyMap[item.name].quantity += 1;
+
+        // Decrement Stock Logic
+        if (item.id) {
+            const inventoryItem = PRESET_INVENTORY.find(p => p.id === item.id);
+            if (inventoryItem && inventoryItem.stock > 0) inventoryItem.stock -= 1;
+        }
+    });
+
+    commitSystemDataToLocalStorage();
+    refreshDashboardAnalyticsUI();
+    updateBoughtItemsDropdownUI();
+    renderPresetsUI(); 
+
+    activeCart = [];
+    updateCartUI();
+    receiptModal.classList.remove('active');
+}
+
+function generateWhatsAppReceiptLink() {
+    let text = `🧾 *STORE RECEIPT*\nDate: ${new Date().toLocaleString()}\n\n`;
+    activeCart.forEach(item => { text += `- ${item.name}: ${formatCurrencyString(item.price)}\n`; });
+    text += `\n*TOTAL: ${formatCurrencyString(getCartCalculatedSum())}*\nPayment: ${paymentMethodSelect.value}\n\nThank you for your business!`;
+    
+    const encodedText = encodeURIComponent(text);
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+}
+
+// ==========================================
+// 9. EVENT LISTENERS
+// ==========================================
+productForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = inputItemName.value.trim();
+    let price = roundToCommercialCents(parseFloat(inputItemPrice.value));
+    if (name && price) {
+        insertItemToCart(name, price, price / CONVERSION_RATES[activeCurrency]);
+        productForm.reset();
+    }
+});
+
+expenseForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const amount = parseFloat(inputExpenseAmount.value);
+    if (!isNaN(amount) && amount > 0) {
+        dayAccountingLog.expenses += amount;
+        commitSystemDataToLocalStorage();
+        refreshDashboardAnalyticsUI();
+        expenseForm.reset();
+        alert("Expense safely recorded.");
+    }
+});
+
+addPresetForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    PRESET_INVENTORY.push({
+        id: Date.now(),
+        category: document.getElementById('new-preset-category').value,
+        name: document.getElementById('new-preset-name').value.trim(),
+        basePrice: parseFloat(document.getElementById('new-preset-price').value),
+        stock: parseInt(document.getElementById('new-preset-stock').value, 10),
+        icon: document.getElementById('new-preset-icon').value.trim() || "📦"
+    });
+    commitSystemDataToLocalStorage();
+    renderPresetsUI();
+    addPresetForm.reset();
+});
+
+btnDiscount.addEventListener('click', () => {
+    let amount = parseFloat(adjustAmountInput.value);
+    if (amount > 0) insertItemToCart("Discount Applied", -Math.abs(amount), -Math.abs(amount / CONVERSION_RATES[activeCurrency]));
+    adjustAmountInput.value = '';
+});
+
+btnSurcharge.addEventListener('click', () => {
+    let amount = parseFloat(adjustAmountInput.value);
+    if (amount > 0) insertItemToCart("Surcharge / Fee", Math.abs(amount), Math.abs(amount / CONVERSION_RATES[activeCurrency]));
+    adjustAmountInput.value = '';
+});
+
+zReportBtn.addEventListener('click', () => {
+    if (confirm("Close the register? This will record today's Z-Report and zero out your dashboard metrics for the next day.")) {
+        let history = JSON.parse(localStorage.getItem('sdg8_pos_history') || '[]');
+        history.push({ date: new Date().toISOString(), data: dayAccountingLog });
+        localStorage.setItem('sdg8_pos_history', JSON.stringify(history));
+
+        dayAccountingLog = { revenue: 0, expenses: 0, transactionCount: 0, productFrequencyMap: {} };
+        commitSystemDataToLocalStorage();
+        refreshDashboardAnalyticsUI();
+        updateBoughtItemsDropdownUI();
+        alert("Register closed successfully. New session started.");
+    }
+});
+
+currencySelect.addEventListener('change', e => handleAppWideCurrencyConversion(e.target.value));
+
+themeToggle.addEventListener('click', () => {
+    const isDark = document.body.classList.toggle('dark-mode');
+    themeToggle.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+    localStorage.setItem('theme-preference', isDark ? 'dark' : 'light');
+});
+
+checkoutBtn.addEventListener('click', compileAndOpenReceiptModal);
+closeModalBtn.addEventListener('click', finalizeCurrentTransaction);
+whatsappReceiptBtn.addEventListener('click', generateWhatsAppReceiptLink);
+
+resetDataBtn.addEventListener('click', () => {
+    if (confirm("Permanently wipe all logs? Inventory presets will be kept.")) {
+        localStorage.removeItem('sdg8_pos_advanced_log');
+        localStorage.removeItem('sdg8_pos_history');
+        dayAccountingLog = { revenue: 0, expenses: 0, transactionCount: 0, productFrequencyMap: {} };
+        activeCart = [];
+        updateCartUI();
+        refreshDashboardAnalyticsUI();
+        updateBoughtItemsDropdownUI();
+    }
+});
+
+window.addEventListener('DOMContentLoaded', loadSystemDataFromLocalStorage);
